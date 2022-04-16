@@ -12,7 +12,7 @@ namespace ProfilingTestTaskProj
 
 		private const int _Max_string_len = 200;
 		private const int _Min_string_len = 20;
-		private const int _Max_file_size_gb = 200;
+		private const int _Max_file_size_gb = 2;
 
 		public string Generate(int linesCount)
 		{
@@ -68,8 +68,8 @@ namespace ProfilingTestTaskProj
 		{
 			var gen = s_Rand_gen;
 			return new string(
-				Enumerable.Range(_Min_string_len, gen.Next(_Max_string_len))
-					.Select(_ => (char)(gen.Next() % 2 == 0 ? gen.Next('a', 'z') : gen.Next('A', 'Z')))
+				Enumerable.Range(0, gen.Next(_Min_string_len, _Max_string_len))
+					.Select(_ => (char)(gen.Next() % 2 == 0 ? gen.Next('a', 'z' + 1) : gen.Next('A', 'Z' + 1)))
 					.ToArray()
 			);
 		}
