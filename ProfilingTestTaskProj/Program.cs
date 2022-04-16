@@ -9,8 +9,8 @@ namespace ProfilingTestTaskProj
 		{
 			var sw = Stopwatch.StartNew();
 
-			var file = new StringsFileGenerator().Generate(150_050);
-			new StringsFileSorter(file).Sort(1000);
+			var file = new StringsFileGenerator().Generate(600_000);
+			new StringsFileSorter(file).Sort(53_000);
 
 			sw.Stop();
 
