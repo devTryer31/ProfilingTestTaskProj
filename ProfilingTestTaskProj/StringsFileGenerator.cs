@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace ProfilingTestTaskProj
 {
@@ -11,17 +12,33 @@ namespace ProfilingTestTaskProj
 
 		private const int _Max_string_len = 200;
 		private const int _Min_string_len = 20;
+		private const int _Max_file_size_gb = 200;
 
-		public void Generate(int linesCount)
+		public string Generate(int linesCount)
 		{
 			string fileName = $"sFile-{linesCount}.txt";
 
 			using var writer = new StreamWriter(fileName);
 
-			foreach (string s in GenerateRandomStrings(linesCount))
-				writer.WriteLine(s_Rand_gen.Next(10_000) + ". " + s);
+			try {
+				ulong fileWeight_b = 0;
+				foreach (string s in GenerateRandomStrings(linesCount)) {
+					string ts = s_Rand_gen.Next(10_000) + ". " + s;
 
+					int bytesCnt = Encoding.UTF8.GetByteCount(ts) + 2; //+2 for \r\n;
+					fileWeight_b += (ulong)bytesCnt;
+					
+					if (fileWeight_b > unchecked(_Max_file_size_gb * 1024UL * 1024 * 1024))
+						throw new OverflowException("File size upper bound reached");
 
+					writer.WriteLine(ts);
+				}
+			}
+			finally {
+				writer.Dispose();
+			}
+
+			return fileName;
 		}
 
 		private IEnumerable<string> GenerateRandomStrings(int count)
