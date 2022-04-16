@@ -6,7 +6,9 @@ namespace ProfilingTestTaskProj
 	{
 		static void Main(string[] args)
 		{
-			Console.WriteLine("Hello World!");
+			new StringsFileGenerator().Generate(100);
+
+			Console.WriteLine("done");
 		}
 	}
 }
