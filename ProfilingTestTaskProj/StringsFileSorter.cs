@@ -7,34 +7,30 @@ namespace ProfilingTestTaskProj
 {
 	public sealed class StringsFileSorter
 	{
-		private sealed class Line : IComparable<Line>
+		private readonly struct Line : IComparable<Line>
 		{
+			private readonly string _line;
+
+			private readonly int _dotPos;
+
 			public Line(string str)
 			{
-				int dotPos = str.IndexOf('.');
+				_line = str;
+				_dotPos = str.IndexOf('.');
 
-				Num = int.Parse(str[..dotPos]);
-				Word = str[(dotPos + 2)..];
+				Num = int.Parse(_line.AsSpan(0, _dotPos));
 			}
 
-			public string Word { get; set; }
+			public ReadOnlySpan<char> Word => _line.AsSpan(_dotPos + 2);
 
-			public int Num { get; set; }
+			public int Num { get; }
 
-			public string GetStringView() => $"{Num}. {Word}";
+			public string GetStringView() => _line;
 
 			public int CompareTo(Line other)
 			{
-				if(ReferenceEquals(this, other))
-					return 0;
-				if(ReferenceEquals(null, other))
-					return 1;
-
-				var wordComparison = string.Compare(Word, other.Word, StringComparison.Ordinal);
-				if(wordComparison != 0)
-					return wordComparison;
-
-				return Num.CompareTo(other.Num);
+				var wordComparison = Word.CompareTo(other.Word, StringComparison.Ordinal);
+				return wordComparison != 0 ? wordComparison : Num.CompareTo(other.Num);
 			}
 		}
 
