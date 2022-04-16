@@ -1,12 +1,20 @@
 ﻿using System;
+using System.Diagnostics;
 
 namespace ProfilingTestTaskProj
 {
-	class Program
+	partial class Program
 	{
 		static void Main(string[] args)
 		{
-			Console.WriteLine("Hello World!");
+			var sw = Stopwatch.StartNew();
+
+			var file = new StringsFileGenerator().Generate(100_050);
+			new StringsFileSorter(file).Sort(1000);
+
+			sw.Stop();
+
+			Console.WriteLine("done: {0}", sw.Elapsed);
 		}
 	}
 }
