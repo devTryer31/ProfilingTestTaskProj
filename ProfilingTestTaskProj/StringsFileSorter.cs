@@ -2,11 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ProfilingTestTaskProj
 {
     public sealed class StringsFileSorter
     {
+        public const string ResultFileName = "result.txt";
+
         private readonly struct Line : IComparable<Line>
         {
             private readonly string _line;
@@ -50,10 +53,11 @@ namespace ProfilingTestTaskProj
         public string Sort(int partLinesCount)
         {
             var files = SplitFile(_fileName, partLinesCount);
-            SortParts(files);
+            SortPartsParallel(files);
             return MergeSort(files);
         }
 
+        //TODO: can be paralelled?
         private string[] SplitFile(string fileName, int partLinesCount)
         {
             List<string> list = new();
@@ -90,10 +94,21 @@ namespace ProfilingTestTaskProj
             }
         }
 
+        private void SortPartsParallel(string[] fileNames)
+        {
+            var res = Parallel.ForEach(fileNames,
+                (f) =>
+                {
+                    var res = File.ReadAllLines(f)
+                    .Select(l => new Line(l))
+                    .OrderBy(l => l)
+                    .Select(l => l.GetStringView());
+                    File.WriteAllLines(f, res);
+                });
+        }
+
         private string MergeSort(string[] filesNames)
         {
-            string resultFileName = "result.txt";
-
             StreamReader[] readers = filesNames.Select(f => new StreamReader(f)).ToArray();
 
             try
@@ -106,7 +121,7 @@ namespace ProfilingTestTaskProj
                             Reader = r
                         }).ToList();
 
-                using var writer = new StreamWriter(resultFileName);
+                using var writer = new StreamWriter(ResultFileName);
 
                 while (firstLines.Count > 0)
                 {
@@ -130,7 +145,7 @@ namespace ProfilingTestTaskProj
                     sr.Dispose();
             }
 
-            return resultFileName;
+            return ResultFileName;
         }
 
     }
