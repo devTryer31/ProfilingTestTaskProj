@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 
 namespace ProfilingTestTaskProj
 {
@@ -15,6 +16,9 @@ namespace ProfilingTestTaskProj
 			sw.Stop();
 
 			Console.WriteLine("done: {0}", sw.Elapsed);
+
+			using var fw = File.AppendText("time_dump.log");
+			fw.WriteLine($"{DateTime.Now :hh:mm:ss} -> {sw.Elapsed}");
 		}
 	}
 }
