@@ -2,135 +2,151 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace ProfilingTestTaskProj
 {
-	public sealed class StringsFileSorter
-	{
-		private readonly struct Line : IComparable<Line>
-		{
-			private readonly string _line;
+    public sealed class StringsFileSorter
+    {
+        public const string ResultFileName = "result.txt";
 
-			private readonly int _dotPos;
+        private readonly struct Line : IComparable<Line>
+        {
+            private readonly string _line;
 
-			public Line(string str)
-			{
-				_line = str;
-				_dotPos = str.IndexOf('.');
+            private readonly int _dotPos;
 
-				Num = int.Parse(_line.AsSpan(0, _dotPos));
-			}
+            public Line(string str)
+            {
+                _line = str;
+                _dotPos = str.IndexOf('.');
 
-			public ReadOnlySpan<char> Word => _line.AsSpan(_dotPos + 2);
+                Num = int.Parse(_line.AsSpan(0, _dotPos));
+            }
 
-			public int Num { get; }
+            public ReadOnlySpan<char> Word => _line.AsSpan(_dotPos + 2);
 
-			public string GetStringView() => _line;
+            public int Num { get; }
 
-			public int CompareTo(Line other)
-			{
-				var wordComparison = Word.CompareTo(other.Word, StringComparison.Ordinal);
-				return wordComparison != 0 ? wordComparison : Num.CompareTo(other.Num);
-			}
-		}
+            public string GetStringView() => _line;
 
-		private sealed class FileLineState
-		{
-			public StreamReader Reader { get; set; }
+            public int CompareTo(Line other)
+            {
+                var wordComparison = Word.CompareTo(other.Word, StringComparison.Ordinal);
+                return wordComparison != 0 ? wordComparison : Num.CompareTo(other.Num);
+            }
+        }
 
-			public Line Line { get; set; }
-		}
+        private sealed class FileLineState
+        {
+            public StreamReader Reader { get; set; }
 
-		private readonly string _fileName;
+            public Line Line { get; set; }
+        }
 
-		private const double _Max_partial_file_size_gb = 1.5d;//TODO: Max_partial_file_size
+        private readonly string _fileName;
 
-		public StringsFileSorter(string fileName) => _fileName = fileName;
+        private const double _Max_partial_file_size_gb = 1.5d;//TODO: Max_partial_file_size
 
-		public string Sort(int partLinesCount)
-		{
-			var files = SplitFile(_fileName, partLinesCount);
-			SortParts(files);
-			return MergeSort(files);
-		}
+        public StringsFileSorter(string fileName) => _fileName = fileName;
 
-		private string[] SplitFile(string fileName, int partLinesCount)
-		{
-			List<string> list = new();
+        public string Sort(int partLinesCount)
+        {
+            var files = SplitFile(_fileName, partLinesCount);
+            SortPartsParallel(files);
+            return MergeSort(files);
+        }
 
-			using var reader = new StreamReader(fileName);
-			int partId = 0;
-			while(!reader.EndOfStream)
-			{
-				string filePartName = $"sPartFiles/p-{partId++}.txt";
-				list.Add(filePartName);
+        //TODO: can be paralelled?
+        private string[] SplitFile(string fileName, int partLinesCount)
+        {
+            List<string> list = new();
 
-				using var writer = new StreamWriter(filePartName);
-				for(int i = 0; i < partLinesCount; ++i)
-				{
-					if(reader.EndOfStream)
-						break;
+            using var reader = new StreamReader(fileName);
+            int partId = 0;
+            while (!reader.EndOfStream)
+            {
+                string filePartName = $"sPartFiles/p-{partId++}.txt";
+                list.Add(filePartName);
 
-					writer.WriteLine(reader.ReadLine());
-				}
-			}
+                using var writer = new StreamWriter(filePartName);
+                for (int i = 0; i < partLinesCount; ++i)
+                {
+                    if (reader.EndOfStream)
+                        break;
 
-			return list.ToArray();
-		}
+                    writer.WriteLine(reader.ReadLine());
+                }
+            }
 
-		private void SortParts(string[] fileNames)
-		{
-			foreach(var f in fileNames)
-			{
-				var res = File.ReadAllLines(f)
-					.Select(l => new Line(l))
-					.OrderBy(l => l)
-					.Select(l => l.GetStringView());
-				File.WriteAllLines(f, res);
-			}
-		}
+            return list.ToArray();
+        }
 
-		private string MergeSort(string[] filesNames)
-		{
-			string resultFileName = "result.txt";
+        private void SortParts(string[] fileNames)
+        {
+            foreach (var f in fileNames)
+            {
+                var res = File.ReadAllLines(f)
+                    .Select(l => new Line(l))
+                    .OrderBy(l => l)
+                    .Select(l => l.GetStringView());
+                File.WriteAllLines(f, res);
+            }
+        }
 
-			StreamReader[] readers = filesNames.Select(f => new StreamReader(f)).ToArray();
+        private void SortPartsParallel(string[] fileNames)
+        {
+            var res = Parallel.ForEach(fileNames,
+                (f) =>
+                {
+                    var res = File.ReadAllLines(f)
+                    .Select(l => new Line(l))
+                    .OrderBy(l => l)
+                    .Select(l => l.GetStringView());
+                    File.WriteAllLines(f, res);
+                });
+        }
 
-			try
-			{
-				var firstLines = readers
-					.Select(r =>
-						new FileLineState {
-							Line = new Line(r.ReadLine()),
-							Reader = r
-						}).ToList();
+        private string MergeSort(string[] filesNames)
+        {
+            StreamReader[] readers = filesNames.Select(f => new StreamReader(f)).ToArray();
 
-				using var writer = new StreamWriter(resultFileName);
+            try
+            {
+                var firstLines = readers
+                    .Select(r =>
+                        new FileLineState
+                        {
+                            Line = new Line(r.ReadLine()),
+                            Reader = r
+                        }).ToList();
 
-				while(firstLines.Count > 0)
-				{
-					var topLine = firstLines
-						.OrderBy(l => l.Line).First();
+                using var writer = new StreamWriter(ResultFileName);
 
-					writer.WriteLine(topLine.Line.GetStringView());
+                while (firstLines.Count > 0)
+                {
+                    var topLine = firstLines
+                        .OrderBy(l => l.Line).First();
 
-					if(topLine.Reader.EndOfStream)
-					{
-						firstLines.Remove(topLine);
-						continue;
-					}
+                    writer.WriteLine(topLine.Line.GetStringView());
 
-					topLine.Line = new Line(topLine.Reader.ReadLine());
-				}
-			}
-			finally
-			{
-				foreach(StreamReader sr in readers)
-					sr.Dispose();
-			}
+                    if (topLine.Reader.EndOfStream)
+                    {
+                        firstLines.Remove(topLine);
+                        continue;
+                    }
 
-			return resultFileName;
-		}
+                    topLine.Line = new Line(topLine.Reader.ReadLine());
+                }
+            }
+            finally
+            {
+                foreach (StreamReader sr in readers)
+                    sr.Dispose();
+            }
 
-	}
+            return ResultFileName;
+        }
+
+    }
 }
